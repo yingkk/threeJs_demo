@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<title>珍源PC</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+	<script src="./js/Tween.js"></script>
+	<script src="./data/data.js"></script>
+	<script src="./js/vue.js"></script>
+	<link type="text/css" rel="stylesheet" href="./css/main.css">
+</head>
+
+<body>
+	<div id="app" v-if="visible" :class="['alert', visible ? 'active' : '']" oncontextmenu="return false">
+		<div class="alert-container">
+			<div class="alert-content">
+				<div class="alert-content-left">
+					<div class="alert-content-left-inner">
+						<div class="alert-content-title">{{ selected.title }}</div>
+						<div class="alert-content-subtitle">
+							{{ selected.title_en }}
+						</div>
+						<div class="alert-content-des">
+							<p v-for="item in selected.description">
+								{{ item }}
+							</p>
+						</div>
+						<div class="alert-content-tab">
+							<div class="alert-content-tab-item" @click="switchPanel(0)" :class="currentTab === 0 ? 'active' : ''">
+								<div class="tab-item-icon img"></div>
+								<span class="tab-item-label">看图片</span>
+							</div>
+							<div class="alert-content-tab-item" @click="switchPanel(1)" :class="currentTab === 1 ? 'active' : ''">
+								<div class="tab-item-icon sanwei"></div>
+								<span class="tab-item-label">玩三维</span>
+							</div>
+							<div class="switch-video" @click="handlePlay" :class="play ? 'active' : ''">
+								<div class="tab-item-icon audio"></div>
+								<span class="tab-item-label">听讲解</span>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="alert-content-right">
+					<div class="alert-content-right-inner">
+						<div class="tab_0" v-if="currentTab === 0">
+							<div class="alert-content-right-up">
+								<img :src="'./data/' + selected.folderName + '/img/'+previewIndex+'.jpg'">
+							</div>
+							<div class="alert-content-right-down">
+								<div class="carousel-item" :class="previewIndex === 1 ? 'active': ''" @click="handlePreview(1)">
+									<img :src="'./data/' + selected.folderName + '/img/1.jpg'">
+								</div>
+								<div class="carousel-item" :class="previewIndex === 2 ? 'active': ''"  @click="handlePreview(2)">
+									<img :src="'./data/' + selected.folderName + '/img/2.jpg'">
+								</div>
+								<div class="carousel-item" :class="previewIndex === 3 ? 'active': ''"  @click="handlePreview(3)">
+									<img :src="'./data/' + selected.folderName + '/img/3.jpg'">
+								</div>
+								<div class="carousel-item" :class="previewIndex === 4 ? 'active': ''"  @click="handlePreview(4)">
+									<img :src="'./data/' + selected.folderName + '/img/4.jpg'">
+								</div>
+							</div>
+						</div>
+						<div class="tab_1" v-if="currentTab === 1">
+							<iframe :src="'./data/'+ selected.folderName + '/360/index.html'" style="width: 100%;height: 100%;border: none;"></iframe>
+						</div>
+						<div class="tab_2" style="display: none;" v-if="selected.folderName">
+							<audio id="audio" controls="controls" preload="auto" loop ref="audio">
+								<source :src="'./data/' + selected.folderName + '/mp3/mp3.mp3'" type="audio/mp3" />
+							</audio>
+						</div>
+					</div>
+					<div class="close" @click.stop="closeModal"></div>
+				</div>
+			</div>
+		</div>
+		<div class="alertBj"></div>
+	</div>
+
+	<script type="module">
+		import * as THREE from './js/three.module.js';
+
+		import Stats from './js/stats.module.js';
+
+		import {
+			OrbitControls
+		} from './js/OrbitControls.js';
+		import {
+			GLTFLoader
+		} from './js/GLTFLoader.js';
+		import {
+			RGBELoader
+		} from './js/RGBELoader.js';
+		import {
+			PMREMGenerator
+		} from './js/PMREMGenerator.js';
+		import {
+			PMREMCubeUVPacker
+		} from './js/PMREMCubeUVPacker.js';
+		import {
+			CSS2DRenderer,
+			CSS2DObject
+		} from './js/CSS2DRenderer.js';
+		import {
+			TrackballControls
+		} from './js/TrackballControls.js';
+
+		var container, controls;
+		var camera, scene, renderer, cameraAnimate = true,
+			raycaster, labelRenderer;
+		var clickObject, overObject;
+		var mouse = new THREE.Vector2();
+		var mousex = 0,
+			mousey = 0;
+		var group = new THREE.Group();
+		var objects = [];
+		var imgMaterialLight, planeLight, hintObject;
+
+		init();
+
+		var vm, currentObj;
+		appInit();
+
+		function init() {
+			container = document.createElement('div');
+			document.body.appendChild(container);
+
+			camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
+			camera.position.set(0, 0, 35);
+			scene = new THREE.Scene();
+			scene.background = new THREE.Color(0x000000);
+
+			//天空盒
+			// new RGBELoader()
+			// 	.setDataType( THREE.UnsignedByteType )
+			// 	.setPath( 'textures/equirectangular/' )
+			// 	.load( 'pedestrian_overpass_2k.hdr', function ( texture ) {
+			// 		var options = {
+			// 			minFilter: texture.minFilter,
+			// 			magFilter: texture.magFilter
+			// 		};
+			// 		scene.background = new THREE.WebGLRenderTargetCube( 1024, 1024, options ).fromEquirectangularTexture( renderer, texture );
+			// 		var pmremGenerator = new PMREMGenerator( scene.background.texture );
+			// 		pmremGenerator.update( renderer );
+			// 		var pmremCubeUVPacker = new PMREMCubeUVPacker( pmremGenerator.cubeLods );
+			// 		pmremCubeUVPacker.update( renderer );
+			// 		var envMap = pmremCubeUVPacker.CubeUVRenderTarget.texture;
+
+			//环境光
+			const light = new THREE.AmbientLight(0xfffdde, 1);
+			scene.add(light);
+
+			//平行光
+			// const directionalLight = new THREE.DirectionalLight( 0xffffff, 1 );
+			// directionalLight.position.set(0, 10, 10);
+
+			// 		directionalLight.shadow.camera.near = 1; //产生阴影的最近距离
+			//         directionalLight.shadow.camera.far = 100; //产生阴影的最远距离
+			//         directionalLight.shadow.camera.left = -500; //产生阴影距离位置的最左边位置
+			//         directionalLight.shadow.camera.right = 500; //最右边
+			//         directionalLight.shadow.camera.top = 500; //最上边
+			//         directionalLight.shadow.camera.bottom = -500; //最下面
+			//         //这两个值决定使用多少像素生成阴影 默认512
+			//         directionalLight.shadow.mapSize.height = 512;
+			//         directionalLight.shadow.mapSize.width = 512;
+			//         console.log(directionalLight);
+			//         //告诉平行光需要开启阴影投射
+			//         directionalLight.castShadow = true;
+			// scene.add( directionalLight );
+
+
+
+
+			//创建一个3d对象作为聚光灯的目标
+			var target1 = new THREE.Object3D();
+			target1.position.set(-100, -10, 0);
+			scene.add(target1);
+
+			var target2 = new THREE.Object3D();
+			target2.position.set(-50, -10, 0);
+			scene.add(target2);
+
+			var target3 = new THREE.Object3D();
+			target3.position.set(0, -10, 0);
+			scene.add(target3);
+
+			//聚光灯1
+			const spotLight1 = new THREE.SpotLight(0xfffdde, 2);
+			spotLight1.position.set(-100, 30, 60);
+			spotLight1.target = target1;
+			spotLight1.angle = Math.PI / 8;
+			spotLight1.penumbra = 1;
+			spotLight1.decay = 2;
+			spotLight1.distance = 200;
+			spotLight1.castShadow = false;
+			spotLight1.shadow.mapSize.width = 512;
+			spotLight1.shadow.mapSize.height = 512;
+			spotLight1.shadow.camera.near = 10;
+			spotLight1.shadow.camera.far = 200;
+			scene.add(spotLight1);
+
+			//聚光灯2
+			const spotLight2 = new THREE.SpotLight(0xfffdde, 2);
+			spotLight2.position.set(-50, 30, 60);
+			spotLight2.target = target2;
+			spotLight2.angle = Math.PI / 8;
+			spotLight2.penumbra = 1;
+			spotLight2.decay = 2;
+			spotLight2.distance = 200;
+			spotLight2.castShadow = false;
+			spotLight2.shadow.mapSize.width = 512;
+			spotLight2.shadow.mapSize.height = 512;
+			spotLight2.shadow.camera.near = 10;
+			spotLight2.shadow.camera.far = 200;
+			scene.add(spotLight2);
+
+			//聚光灯3
+			const spotLight3 = new THREE.SpotLight(0xfffdde, 2);
+			spotLight3.position.set(0, 30, 60);
+			spotLight3.target = target3;
+			spotLight3.angle = Math.PI / 8;
+			spotLight3.penumbra = 1;
+			spotLight3.decay = 2;
+			spotLight3.distance = 200;
+			spotLight3.castShadow = false;
+			spotLight3.shadow.mapSize.width = 512;
+			spotLight3.shadow.mapSize.height = 512;
+			spotLight3.shadow.camera.near = 10;
+			spotLight3.shadow.camera.far = 200;
+			scene.add(spotLight3);
+
+			// 高亮灯
+			var textureLight = new THREE.TextureLoader().load("./img/1.jpg");
+			var imgGeometryLight = new THREE.PlaneGeometry(15, 25);
+			imgMaterialLight = new THREE.MeshBasicMaterial({
+				transparent: true,
+				alphaMap: textureLight,
+				opacity: 0
+			});
+			// imgMaterialLight.depthWrite = false; //关闭透明材质的深度写入
+			// imgMaterialLight.depthTest = false; //关闭透明材质的深度测试
+			// imgMaterialLight.side= THREE.DoubleSide; //双面显示
+			imgMaterialLight.renderOrder = 3;
+			planeLight = new THREE.Mesh(imgGeometryLight, imgMaterialLight);
+			planeLight.position.x = 0;
+			planeLight.position.y = 0;
+			planeLight.position.z = 3;
+			// planeLight.visible = false;
+			scene.add(planeLight);
+
+			// 提示信息
+			var hintDiv = document.createElement('div');
+			hintDiv.className = 'label2D';
+			hintDiv.id = "hintObject";
+			hintDiv.innerHTML = '<div class="labelTitle"><span id="hintTitle"></span></div>';
+			hintObject = new CSS2DObject(hintDiv);
+			hintObject.visible = false;
+			scene.add(hintObject);
+
+			//为阴影摄影机创建辅助对象
+			// var helper = new THREE.CameraHelper( spotLight1.shadow.camera );
+			// scene.add( helper );
+
+			// model 1 底座
+			var loader = new GLTFLoader().setPath('./gltf/zy3/');
+			loader.load('zy3.gltf', function (gltf) {
+				gltf.scene.traverse(function (child) {
+					//开启产生阴影,接受阴影
+					if (child.isMesh) {
+						child.castShadow = true;
+						child.receiveShadow = true; //false
+						child.material.renderOrder = 2;
+						// child.material.transparent = true; //开启透明
+						// child.material.envMap = envMap;//天空盒相关
+						child.position.x = 0;
+						child.position.y = 0;
+						child.position.z = -3;
+					}
+				});
+				scene.add(gltf.scene);
+			});
+
+			////天空盒结尾
+			// pmremGenerator.dispose();
+			// 	pmremCubeUVPacker.dispose();
+			// } );
+
+			// model 2 展品
+			var loader = new GLTFLoader().setPath('./gltf/zy2/');
+			loader.load('zy2.gltf', function (gltf) {
+				gltf.scene.traverse(function (child) {
+					//开启产生阴影,接受阴影
+					if (child.isMesh) {
+						// if(child.name == 'zy2_50') {
+						// }
+						// child.material.depthWrite = false; //关闭透明材质的深度写入
+						// child.material.depthTest = false; //关闭透明材质的深度测试
+						// child.material.side= THREE.DoubleSide; //双面显示
+						child.material.renderOrder = 1;
+						// child.material.opacity= 0.5;//透明度
+						child.castShadow = true;
+						child.receiveShadow = true; //false
+						// child.material.transparent = true; //开启透明
+						// child.material.envMap = envMap;//天空盒相关
+						child.position.z = -3;
+						// child.userData.title = child.name;
+						child.userData.title = child.name;
+						objects.push(child);
+					}
+				});
+				scene.add(gltf.scene);
+			});
+
+			// model 3 PM
+			// var loader = new GLTFLoader().setPath('lh/3_zy/pm/');
+			// loader.load('pm.gltf', function(gltf) {
+			// 	gltf.scene.traverse(function(child) {
+			// 		//开启产生阴影,接受阴影
+			// 		if (child.isMesh) {
+			// 			child.material.transparent = true;
+			// 			// child.material.opacity = 0;
+			// 			// child.material.alphaMap = child.material.map;
+			// 			// child.material.map = null;
+			// 			clind.material.blending = THREE.AdditiveBlending;
+
+			// 			planeLight = child;
+			// 			imgMaterialLight = planeLight.material;
+			// 		}
+			// 	});
+			// 	scene.add(gltf.scene);
+			// });
+
+
+
+			//自建面1
+			// const oPlaneGeometry = new THREE.PlaneGeometry(500, 500);
+			// const oMeshBasicMaterial = new THREE.MeshBasicMaterial({
+			// 	transparent: true, //开启透明
+			// 	// depthWrite: false, //关闭透明材质的深度写入
+			// 	// depthTest: false, //打开透明材质的深度测试
+			// 	map: new THREE.TextureLoader().load('lh/3_zy/gltf/K0006.png'),
+			// 	// alphaMap: new THREE.TextureLoader().load( 'textures/dimian1.jpg' ),
+			// });
+			// const oMesh = new THREE.Mesh(oPlaneGeometry, oMeshBasicMaterial);
+			// // oMesh.rotation.x = 0;//旋转
+			// oMesh.position.x = 0;
+			// oMesh.position.y = 0;
+			// oMesh.position.z = -500;
+			// scene.add(oMesh);
+
+			labelRenderer = new CSS2DRenderer();
+			labelRenderer.setSize(window.innerWidth, window.innerHeight);
+			labelRenderer.domElement.style.position = 'absolute';
+			labelRenderer.domElement.id = 'labelRenderer';
+			labelRenderer.domElement.style.top = '0px';
+			document.body.appendChild(labelRenderer.domElement);
+
+			controls = new OrbitControls(camera, labelRenderer.domElement);
+			controls.enableRotate = false; //右键旋转
+			controls.screenSpacePanning = true;
+			//相机移动最小和最大范围
+			controls.minDistance = 30;
+			controls.maxDistance = 50;
+			//阻尼
+			controls.enableDamping = true;
+			controls.dampingFactor = 0.5;
+			//
+			controls.enablePan = true;
+			//行动范围
+			controls.rangeBox = new THREE.Box3(new THREE.Vector3(-100, -0.3, -Infinity),
+				new THREE.Vector3(85, 0.3, +Infinity));
+
+			//鼠标按钮
+			controls.mouseButtons = {
+				LEFT: THREE.MOUSE.PAN,
+				MIDDLE: THREE.MOUSE.DOLLY,
+				RIGHT: THREE.MOUSE.ROTATE
+			};
+			controls.touches = {
+				ONE: THREE.TOUCH.PAN,
+				TWO: THREE.TOUCH.DOLLY_PAN
+			}
+			camera.position.set(-100, 0, 35);
+			controls.target = new THREE.Vector3(-100, 0, 0);
+			controls.update();
+
+
+			renderer = new THREE.WebGLRenderer({
+				antialias: true,
+				alpha: true
+			});
+			renderer.setPixelRatio(window.devicePixelRatio);
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.gammaOutput = true;
+			renderer.shadowMap.enabled = true; //开启全局投影
+			renderer.sortObjects = true;
+			container.appendChild(renderer.domElement);
+
+			raycaster = new THREE.Raycaster();
+
+			animate();
+
+			document.addEventListener('touchstart', onDocumentTouchstart, false);
+			document.addEventListener('touchend', onDocumentTouchend, false);
+			document.addEventListener('touchmove', onDocumentTouchmove, false);
+
+			document.addEventListener('mousedown', onDocumentMouseDown, false);
+			document.addEventListener('mouseup', onDocumentMouseUp, false);
+			document.addEventListener('mousemove', onDocumentMouseMove, false);
+
+			document.addEventListener('resize', onWindowResize, false);
+
+			// stats
+			// stats = new Stats();
+			// container.appendChild( stats.dom );
+
+		}
+
+		function onWindowResize() {
+			camera.aspect = window.innerWidth / window.innerHeight;
+			camera.updateProjectionMatrix();
+			renderer.setSize(window.innerWidth, window.innerHeight);
+		}
+
+		function rayClickObject() {
+			raycaster.setFromCamera(mouse, camera);
+			var intersects = raycaster.intersectObjects(objects);
+			if (!intersects[0]) {
+				return null;
+			}
+			/*
+			if(intersects.length > 1) {
+				intersects.forEach((val, idx) => {
+					console.log(val.object);
+				});
+			}
+			*/
+			var mesh = intersects[0].object;
+			return mesh;
+		}
+
+		function onDocumentMouseDown(event) {
+			mousex = event.clientX / window.innerWidth * 2 - 1;
+			mousey = -(event.clientY / window.innerHeight) * 2 + 1;
+			clickObject = rayClickObject();
+		}
+
+		function onDocumentMouseUp(event) {
+			if (clickObject) {
+				var currentClick = rayClickObject();
+				if (clickObject == currentClick && mousex == mouse.x && event.target.id === "labelRenderer") {
+					objectClick(currentClick);
+				}
+				clickObject = null;
+			}
+		}
+
+		function onDocumentMouseMove(event) {
+			event.preventDefault();
+			mouse.x = event.clientX / window.innerWidth * 2 - 1;
+			mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+			let currentOverObject = rayClickObject();
+			if (overObject && overObject != currentOverObject) {
+				lightOff(overObject);
+				overObject = null;
+			}
+			if (currentOverObject) {
+				overObject = currentOverObject;
+				lightOn(overObject);
+				//todo 弹窗打开时，鼠标移动不显示藏品名称
+				// if(vm && !vm.visible){
+				// 	lightOn(overObject);
+				// }
+			}
+		}
+
+
+		function onDocumentTouchstart(event) {
+			mousex = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
+			mousey = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
+			clickObject = rayClickObject();
+		}
+
+		function onDocumentTouchend(event) {
+			if (clickObject) {
+				var currentClick = rayClickObject();
+				if (clickObject == currentClick && mousex == mouse.x) {
+					objectClick(currentClick);
+				}
+				clickObject = null;
+			}
+		}
+
+		function onDocumentTouchmove(event) {
+			event.preventDefault();
+			mouse.x = (event.touches[0].clientX / window.innerWidth) * 2 - 1;
+			mouse.y = -(event.touches[0].clientY / window.innerHeight) * 2 + 1;
+
+			let currentOverObject = rayClickObject();
+			if (overObject && overObject != currentOverObject) {
+				lightOff(overObject);
+				overObject = null;
+			}
+			if (currentOverObject) {
+				overObject = currentOverObject;
+				lightOn(overObject);
+			}
+		}
+
+		//
+		function animate() {
+			requestAnimationFrame(animate);
+			TWEEN.update();
+			renderer.render(scene, camera);
+			labelRenderer.render(scene, camera);
+			// stats.update();
+		}
+
+
+
+		/**
+		 * 计算对象中心点坐标
+		 * @param {Object} obj 对象
+		 * @return Vector3
+		 */
+		function calcCenter(obj) {
+			if (obj.isMesh) {
+				let mesh = obj;
+				//计算中心点
+				mesh.geometry.computeBoundingBox();
+				var centroid = new THREE.Vector3();
+				centroid.addVectors(mesh.geometry.boundingBox.min, mesh.geometry.boundingBox.max);
+				centroid.multiplyScalar(0.5);
+				centroid.applyMatrix4(mesh.matrixWorld);
+				return centroid;
+			} else {
+				let boundingBox = calcBounding(obj);
+				if (boundingBox) {
+					var point = new THREE.Vector3();
+					point.addVectors(boundingBox.min, boundingBox.max);
+					point.multiplyScalar(0.5);
+					return point;
+				} else {
+					return obj.getWorldPosition(new THREE.Vector3());
+				}
+			}
+		}
+
+		/**
+		 * 计算对象边界值
+		 * @param {Object} obj 对象
+		 * @return {min, max} 对象边界点，可能为空
+		 */
+		function calcBounding(obj) {
+			let boundingBox = null;
+			if (obj.isMesh) {
+				let mesh = obj;
+				//计算中心点
+				mesh.geometry.computeBoundingBox();
+				boundingBox = {
+					min: mesh.geometry.boundingBox.min.clone().applyMatrix4(mesh.matrixWorld),
+					max: mesh.geometry.boundingBox.max.clone().applyMatrix4(mesh.matrixWorld)
+				};
+				return boundingBox;
+			} else if (obj.isGroup && obj.children && obj.children.length > 0) {
+				obj.children.forEach(o => {
+					let b = calcBounding(o);
+					if (!boundingBox) {
+						boundingBox = b;
+					} else {
+						boundingBox = {
+							min: boundingBox.min.min(b.min),
+							max: boundingBox.max.max(b.max)
+						};
+					}
+				});
+				return boundingBox;
+			} else {
+				return null;
+			}
+		}
+
+		var lightIndex = 1;
+		var times = null;
+		var timeBuffer = null;
+
+		function fnClearTimes() {
+			clearTimeout(times);
+			times = null;
+		}
+
+		function fnClearInterTimes() {
+			clearInterval(timeBuffer);
+			timeBuffer = null;
+		}
+		/**
+		 * 灯图片显示
+		 */
+		function lightImgLoad() {
+			fnClearTimes();
+			new THREE.TextureLoader().load('./img/1.jpg', function (texture) {
+				imgMaterialLight.alphaMap = texture;
+				lightIndex++;
+
+				if (lightIndex == 29) {
+					lightIndex = 2;
+				}
+
+				times = setTimeout(function () {
+					//放到else里就只播放一次
+					lightImgLoad();
+				}, 100);
+			});
+		}
+
+		/**
+		 * 灯循环显示
+		 */
+		function lightLoad(pos) {
+			fnClearInterTimes();
+			var opacity = 0;
+			timeBuffer = setInterval(function () {
+				if (opacity < 1) {
+					opacity += 0.1;
+					imgMaterialLight.opacity = Math.max(imgMaterialLight.opacity, opacity);
+				} else {
+					fnClearInterTimes();
+					lightImgLoad();
+				}
+			}, 50);
+			// 灯光位置调整
+			planeLight.position.copy(pos).add(new THREE.Vector3(0, 0, 0));
+			planeLight.visible = true;
+		}
+
+		/**
+		 * 取消高亮，悬停离开
+		 * @param {Object} obj
+		 */
+		function lightOff(obj) {
+			// console.log("lightOff", obj);
+			planeLight.visible = false;
+			hintObject.visible = false;
+			imgMaterialLight.opacity = 0;
+			fnClearInterTimes();
+			fnClearTimes();
+		}
+
+		/**
+		 * 显示高亮，悬停
+		 * @param {Object} obj
+		 */
+		function lightOn(obj) {
+			//console.log("lightOn", obj);
+			// 计算位置
+			let pos = calcCenter(obj);
+			let bounding = calcBounding(obj);
+			// 加载灯光
+			lightLoad(pos);
+			let lablePos = new THREE.Vector3().copy(pos);
+			if (bounding) {
+				lablePos.setY(bounding.min.y + 1);
+			}
+			hintLabel(lablePos, obj.userData.title);
+		}
+
+		/**
+		 * 显示提示文字
+		 * @param {Object} plane
+		 */
+		function hintLabel(pos, title) {
+			hintObject.position.copy(pos);
+			hintObject.visible = true;
+			// document.getElementById("hintTitle").innerText = title || "暂无数据";
+			// 显示配置的藏品名称
+			const name = details[title]['title'];
+			document.getElementById("hintTitle").innerText = name || "暂无数据";
+		}
+
+		/**
+		 * 对象点击
+		 * @param {Object} obj
+		 */
+		function objectClick(obj) {
+			currentObj = details[obj.name];
+			vm.selected = currentObj;
+			vm.visible = true;
+			vm.currentTab = 0;
+			vm.play = false;
+			vm.previewIndex = 1;
+		}
+
+		function appInit() {
+			vm = new Vue({
+				el: "#app",
+				data: {
+					selected: {},
+					visible: false,
+					currentTab: 0,
+					play: false,
+					previewIndex: 1
+				},
+				methods: {
+					handlePreview: function(previewIndex) {
+						this.previewIndex = previewIndex;
+					},
+					handlePlay: function() {
+						this.play = !this.play
+						this.play ? this.playAudio() : this.pauseAudio();
+					},
+					playAudio: function() {
+						this.$refs.audio.play();
+					},
+					pauseAudio: function() {
+						this.$refs.audio.pause();
+					},
+					closeModal: function () {
+						this.selected = {};
+						this.visible = false;
+					},
+					switchPanel: function (current) {
+						this.currentTab = current;
+					}
+				},
+			})
+		}
+	</script>
+
+</body>
+
+</html>
