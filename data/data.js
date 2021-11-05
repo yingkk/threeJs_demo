@@ -560,7 +560,7 @@ const details = {
 	},
 	zy2_61: {
 	  folderName: "K0011",
-	  title: "球状黄铜矿、方解石",
+	  title: "黑钨矿、水晶、自然铜",
 	  title_en: "Turquoise",
 	  description: [
 		"绿松石，又称“松石”，因其“形似松球，色近松绿”而得名。英文名Turquoise，意为土耳其石。土耳其并不产绿松石，传说古代波斯产的绿松石是经土耳其运进欧洲而得名。",

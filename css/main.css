@@ -109,6 +109,7 @@ select {
 
 #app {
   position: absolute;
+  display: none;
   left: 0;
   top: 0;
   width: 100%;
@@ -120,7 +121,7 @@ select {
 
 .alert {
   position: absolute;
-  display: block;
+  display: none;
   width: 100%;
   height: 100%;
   z-index: -1;
@@ -143,7 +144,7 @@ select {
 }
 
 .alert.active {
-  display: block;
+  display: block !important;
   z-index: 9999;
 }
 
@@ -227,13 +228,13 @@ select {
   .alert-content-left-inner
   .alert-content-des::-webkit-scrollbar-thumb {
   border-radius: 10px;
-  background-color:  #191919;
+  background-color: #191919;
 }
 .alert-content-left
   .alert-content-left-inner
   .alert-content-des::-webkit-scrollbar-track {
   border-radius: 10px;
-  background-color:  #464545;
+  background-color: #464545;
 }
 
 p {
