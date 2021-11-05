@@ -31,7 +31,7 @@
 								<div class="tab-item-icon img"></div>
 								<span class="tab-item-label">看图片</span>
 							</div>
-							<div class="alert-content-tab-item" @click="switchPanel(1)" :class="currentTab === 1 ? 'active' : ''">
+							<div class="alert-content-tab-item" v-if="selected.folderName !== 'K0165'" @click="switchPanel(1)" :class="currentTab === 1 ? 'active' : ''">
 								<div class="tab-item-icon sanwei"></div>
 								<span class="tab-item-label">玩三维</span>
 							</div>
